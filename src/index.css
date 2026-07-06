@@ -1,0 +1,74 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Financial-terminal palette — ink navy base, ledger-gold accent */
+  --bg: 210 30% 8%;
+  --surface: 212 26% 11%;
+  --surface2: 212 22% 15%;
+  --border: 210 18% 22%;
+  --ink: 210 30% 92%;
+  --muted: 213 14% 62%;
+  --faint: 213 12% 44%;
+  --gold: 41 78% 58%;
+  --goldsoft: 41 55% 40%;
+  --ok: 158 58% 45%;
+  --warn: 38 92% 55%;
+  --risk: 358 72% 60%;
+  --info: 205 80% 58%;
+}
+
+:root.light {
+  --bg: 40 30% 97%;
+  --surface: 0 0% 100%;
+  --surface2: 40 20% 95%;
+  --border: 214 20% 86%;
+  --ink: 213 40% 14%;
+  --muted: 213 14% 40%;
+  --faint: 213 12% 55%;
+  --gold: 38 70% 42%;
+  --goldsoft: 38 55% 52%;
+  --ok: 158 62% 36%;
+  --warn: 32 88% 44%;
+  --risk: 358 66% 50%;
+  --info: 205 74% 44%;
+}
+
+* { border-color: hsl(var(--border)); }
+
+html, body, #root { height: 100%; }
+
+body {
+  background: hsl(var(--bg));
+  color: hsl(var(--ink));
+  font-family: 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+}
+
+/* All financial figures use tabular, monospace numerals */
+.num {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+
+/* Drill-down affordance: dotted gold underline that becomes solid on hover */
+.trace {
+  cursor: pointer;
+  text-decoration: underline dotted hsl(var(--gold) / 0.55);
+  text-underline-offset: 3px;
+  transition: color 0.12s, text-decoration-color 0.12s;
+}
+.trace:hover { color: hsl(var(--gold)); text-decoration-color: hsl(var(--gold)); }
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 5px; border: 2px solid hsl(var(--bg)); }
+::-webkit-scrollbar-thumb:hover { background: hsl(var(--faint)); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
