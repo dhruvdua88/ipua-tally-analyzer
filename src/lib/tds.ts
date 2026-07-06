@@ -45,11 +45,12 @@ export function computeTdsReview(ds: Dataset, _rules?: TdsRule[]): TdsReviewRow[
     const tdsCredit = lines.filter((l) => l.category === 'tds' && l.subtype === 'tds_payable' && l.drcr === 'Cr')
     const tdsDebitOnly = lines.some((l) => l.category === 'tds' && l.subtype === 'tds_payable' && l.drcr === 'Dr') && !tdsCredit.length
 
-    // base ledgers = what is being paid: expenses, then vendor advances (Loans & Advances)
+    // base ledgers = what is being paid: expenses + vendor advances (Loans & Advances)
     const expenseDr = lines.filter((l) => l.category === 'expense' && l.drcr === 'Dr' && l.amount > 0)
     const advanceDr = lines.filter((l) => l.category === 'advance_paid' && l.drcr === 'Dr' && l.amount > 0)
     const baseLines = expenseDr.length ? expenseDr : advanceDr
     const partyName = head.partyName || lines.find((l) => l.category === 'party')?.ledgerName || '—'
+    const isVendorVoucher = /payment|journal|purchase/i.test(head.voucherType)
 
     if (tdsCredit.length) {
       // ---- TDS DEDUCTED ----
@@ -69,9 +70,13 @@ export function computeTdsReview(ds: Dataset, _rules?: TdsRule[]): TdsReviewRow[
           status: 'deducted', note: `TDS ₹${tdsAmount.toLocaleString('en-IN')} deducted${section ? ' (' + section + ')' : ''}`,
         })
       }
-    } else if (!tdsDebitOnly && baseLines.length && /payment|journal|purchase/i.test(head.voucherType)) {
+    } else if (!tdsDebitOnly) {
       // ---- VENDOR PAYMENT / ADVANCE WITH NO TDS ----
-      for (const b of baseLines) {
+      // Every advance_paid debit is checked regardless of voucher type; expense
+      // debits are checked in vendor-type vouchers. This is rule-based, so any
+      // future advance to any new party/venue is caught without code changes.
+      const missBase = [...advanceDr, ...(isVendorVoucher ? expenseDr : [])]
+      for (const b of missBase) {
         const isAdvance = b.category === 'advance_paid'
         rows.push({
           lineId: b.id,
