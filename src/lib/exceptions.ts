@@ -12,18 +12,14 @@ export function computeExceptions(ds: Dataset, tdsRows: TdsReviewRow[], advanceR
   const out: ExceptionRow[] = []
   const periodTo = ds.periodTo || (ds.lines.length ? ds.lines[ds.lines.length - 1].date : '')
 
-  // 1) Missing / short TDS
+  // 1) TDS not deducted on vendor payments / advances
   for (const r of tdsRows) {
-    if (r.status === 'not_deducted') {
-      out.push({ id: `tds-${r.lineId}`, type: 'missing_tds', severity: 'high',
-        title: `TDS not deducted — ${r.ledger}`,
-        detail: `${r.party}: ₹${r.amount.toLocaleString('en-IN')} expected ${r.expectedRate}% ${r.matchedSection}. ${r.note}`,
-        amount: r.expectedTds, ref: `${r.voucherType} ${r.voucherNumber}`, lineId: r.lineId })
-    } else if (r.status === 'short_deducted') {
-      out.push({ id: `tds-${r.lineId}`, type: 'missing_tds', severity: 'medium',
-        title: `Short TDS — ${r.ledger}`, detail: `${r.party}: ${r.note}`,
-        amount: r.expectedTds - r.actualTds, ref: `${r.voucherType} ${r.voucherNumber}`, lineId: r.lineId })
-    }
+    if (r.status !== 'not_deducted') continue
+    const isAdvance = /advance/i.test(r.note)
+    out.push({ id: `tds-${r.lineId}`, type: 'missing_tds', severity: isAdvance ? 'high' : 'medium',
+      title: `TDS not deducted — ${r.ledger}`,
+      detail: `${r.party}: ₹${r.amount.toLocaleString('en-IN')} paid. ${r.note}`,
+      amount: r.amount, ref: `${r.voucherType} ${r.voucherNumber}`, lineId: r.lineId })
   }
 
   // 2) GST on advance

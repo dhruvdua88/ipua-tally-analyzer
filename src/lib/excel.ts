@@ -205,38 +205,55 @@ const fname = (report: string, company: string) => `IPUA_${report}_${clean(compa
 
 export async function exportTds(rows: TdsReviewRow[], company: string) {
   const wb = new ExcelJS.Workbook()
-  const statusTag: Record<string, ColorTag> = {
-    deducted: 'ok', not_deducted: 'risk', short_deducted: 'warn', below_threshold: 'muted', manual_review: 'info',
-  }
-  const label: Record<string, string> = {
-    deducted: 'Deducted', not_deducted: 'Not Deducted', short_deducted: 'Short Deducted', below_threshold: 'Below Threshold', manual_review: 'Manual Review',
-  }
-  addStyledSheet(wb, 'TDS Review', {
-    title: 'TDS Review',
-    subtitle: stamp(company, `${rows.length} expense lines reviewed`),
+  const deducted = rows.filter((r) => r.status === 'deducted')
+  const notDeducted = rows.filter((r) => r.status === 'not_deducted')
+  const totalTds = deducted.reduce((s, r) => s + r.tdsAmount, 0)
+
+  // Sheet 1 — TDS deducted per transaction
+  addStyledSheet(wb, 'TDS Deducted', {
+    title: 'TDS Deducted — per transaction',
+    subtitle: stamp(company, `${deducted.length} deductions · ₹${Math.round(totalTds).toLocaleString('en-IN')} TDS`),
     columns: [
       { header: 'Date', key: 'date', width: 12 },
       { header: 'Voucher', key: 'voucher', width: 16 },
       { header: 'Party', key: 'party', width: 30 },
-      { header: 'Ledger', key: 'ledger', width: 26 },
-      { header: 'Amount', key: 'amount', type: 'money', width: 16, total: true },
-      { header: 'Sec', key: 'section', type: 'center', width: 8 },
+      { header: 'Base Ledger', key: 'ledger', width: 28 },
+      { header: 'Base Amount', key: 'amount', type: 'money', width: 16, total: true },
+      { header: 'TDS Ledger', key: 'tdsLedger', width: 18 },
+      { header: 'TDS Deducted', key: 'tds', type: 'money', width: 16, total: true },
       { header: 'Rate %', key: 'rate', type: 'pct', width: 9 },
-      { header: 'Expected TDS', key: 'expected', type: 'money', width: 15, total: true },
-      { header: 'Actual TDS', key: 'actual', type: 'money', width: 15, total: true },
-      { header: 'Status', key: 'statusLabel', type: 'status', width: 16 },
-      { header: 'Note', key: 'note', width: 42 },
+      { header: 'Section', key: 'section', type: 'center', width: 12 },
+      { header: 'Narration', key: 'narration', width: 40 },
     ],
-    rows: rows.map((r) => ({
+    rows: deducted.map((r) => ({
       date: r.date, voucher: `${r.voucherType} #${r.voucherNumber}`, party: r.party, ledger: r.ledger,
-      amount: r.amount, section: r.matchedSection ?? '—', rate: r.expectedRate,
-      expected: +r.expectedTds.toFixed(2), actual: +r.actualTds.toFixed(2),
-      statusLabel: label[r.status], status: r.status, note: r.note,
+      amount: r.amount, tdsLedger: r.tdsLedger, tds: r.tdsAmount, rate: r.rate, section: r.section ?? '—', narration: r.narration,
     })),
-    tagFor: (row, key) => key === 'statusLabel' ? statusTag[String(row.status)] : undefined,
-    note: 'TDS matched by section keywords; expected TDS = amount × rate. Verify nature of payment for “Manual Review” rows.',
+    note: 'TDS identified directly from credits to the TDS payable ledger. Rate = TDS ÷ base amount. TDS challan payments (debits to the TDS ledger vs bank) are excluded.',
   })
-  await save(wb, fname('TDS_Review', company))
+
+  // Sheet 2 — vendor payments / advances with no TDS
+  addStyledSheet(wb, 'TDS Not Deducted', {
+    title: 'Vendor Payments / Advances — No TDS Deducted',
+    subtitle: stamp(company, `${notDeducted.length} items · ₹${Math.round(notDeducted.reduce((s, r) => s + r.amount, 0)).toLocaleString('en-IN')} paid`),
+    columns: [
+      { header: 'Date', key: 'date', width: 12 },
+      { header: 'Voucher', key: 'voucher', width: 16 },
+      { header: 'Party', key: 'party', width: 30 },
+      { header: 'Ledger', key: 'ledger', width: 28 },
+      { header: 'Amount Paid', key: 'amount', type: 'money', width: 16, total: true },
+      { header: 'Section?', key: 'section', type: 'center', width: 12 },
+      { header: 'Why flagged', key: 'note', width: 52 },
+    ],
+    rows: notDeducted.map((r) => ({
+      date: r.date, voucher: `${r.voucherType} #${r.voucherNumber}`, party: r.party, ledger: r.ledger,
+      amount: r.amount, section: r.section ?? '—', note: r.note,
+    })),
+    tagFor: (row, key) => key === 'note' ? 'risk' : undefined,
+    note: 'Vendor payments and advances (incl. Loans & Advances such as venue advances) with no TDS credit in the voucher — e.g. the Aldovia venue advance. Verify 194C/194I/194J applicability.',
+  })
+
+  await save(wb, fname('TDS_Register', company))
 }
 
 export async function exportGstAdvances(rows: AdvanceRow[], company: string) {

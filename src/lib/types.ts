@@ -192,9 +192,6 @@ export interface TdsRule {
 export type TdsStatus =
   | 'deducted'
   | 'not_deducted'
-  | 'short_deducted'
-  | 'below_threshold'
-  | 'manual_review'
 
 export interface TdsReviewRow {
   lineId: string
@@ -202,13 +199,13 @@ export interface TdsReviewRow {
   voucherType: string
   voucherNumber: string
   party: string
-  ledger: string
-  amount: number            // expense base amount (positive)
+  ledger: string            // base ledger (expense / vendor advance) the TDS relates to
+  amount: number            // base amount (positive)
   narration: string
-  matchedSection?: string
-  expectedRate: number
-  expectedTds: number
-  actualTds: number         // TDS found in the same voucher
+  tdsLedger: string         // TDS ledger name ('' if none deducted)
+  tdsAmount: number         // TDS actually deducted (credit to TDS payable); 0 if none
+  rate: number              // effective rate % = tdsAmount / amount
+  section?: string          // section hint parsed from narration (e.g. 194C), optional
   status: TdsStatus
   note: string
 }

@@ -33,6 +33,11 @@ await wb.xlsx.load(ab)
 const ws = wb.worksheets[0]
 const title = ws.getCell(1, 1)
 const header = ws.getCell(4, 1)
+console.log('TDS workbook sheets:', wb.worksheets.map((w) => w.name).join(', '))
+const notSheet = wb.worksheets.find((w) => /Not Deducted/i.test(w.name))
+let aldoviaFound = false
+notSheet?.eachRow((row) => { if (String(row.getCell(4).value).toLowerCase().includes('aldovia')) aldoviaFound = true })
+console.log('Aldovia in Not-Deducted sheet:', aldoviaFound)
 console.log('TDS sheet:', ws.name, '| rows', ws.rowCount, '| cols', ws.columnCount)
 console.log('title fill argb:', (title.fill as any)?.fgColor?.argb, '| frozen:', JSON.stringify(ws.views?.[0]))
 console.log('header fill argb:', (header.fill as any)?.fgColor?.argb, '| bold:', (header.font as any)?.bold)

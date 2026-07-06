@@ -43,7 +43,11 @@ console.log('BS assets', f(bs.totalAssets), '| liab+eq', f(bs.totalLiabilities),
 const tds = computeTdsReview(ds, DEFAULT_TDS_RULES)
 const tdsBy: Record<string, number> = {}
 for (const r of tds) tdsBy[r.status] = (tdsBy[r.status] ?? 0) + 1
-console.log('\n== TDS ==', 'rows', tds.length, tdsBy)
+const tdsDeductedTot = tds.filter((r) => r.status === 'deducted').reduce((s, r) => s + r.tdsAmount, 0)
+console.log('\n== TDS ==', 'rows', tds.length, tdsBy, '| total TDS deducted', f(tdsDeductedTot))
+console.log('  deducted sample:', tds.filter((r) => r.status === 'deducted').slice(0, 2).map((r) => `${r.ledger} ${f(r.amount)} -> TDS ${f(r.tdsAmount)} @${r.rate}% ${r.section ?? ''}`))
+const aldovia = tds.find((r) => /aldovia/i.test(r.ledger))
+console.log('  ALDOVIA:', aldovia ? `${aldovia.status} | ${f(aldovia.amount)} | ${aldovia.voucherType} #${aldovia.voucherNumber} | ${aldovia.note}` : 'NOT FOUND')
 
 const adv = computeGstAdvances(ds)
 const advBy: Record<string, number> = {}
