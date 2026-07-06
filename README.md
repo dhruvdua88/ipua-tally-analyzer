@@ -1,6 +1,6 @@
-# Tally Ledger Analyzer
+# IPUA Tally Analyzer
 
-A fully in-browser audit workbench for **tally-database-loader** CSV/ZIP exports, built for a Section 8 (non-profit) event-support company but schema-agnostic to any Tally book. Upload a Tally export ZIP and get ledger classification, TDS review, GST-on-advances checks, GST reconciliation, an MIS dashboard, P&L + Balance Sheet, and a central exceptions register — every figure clickable down to the voucher line.
+A fully in-browser audit workbench for **tally-database-loader** CSV/ZIP exports, built for **IPUA Events Forum** (a Section 8 / non-profit event-support company) but schema-agnostic to any Tally book. Upload a Tally export ZIP and get ledger classification, TDS review, GST-on-advances checks, GST reconciliation, an MIS dashboard, P&L + Balance Sheet, and a central exceptions register — every figure clickable down to the voucher line.
 
 **No backend. No upload to any server.** Everything is parsed, normalized, analyzed and stored **locally in your browser** (IndexedDB via Dexie). Your books never leave the device.
 
@@ -23,7 +23,7 @@ Every dashboard number is **clickable** and opens the exact accounting lines beh
 
 - **React 18 + Vite + TypeScript**
 - **JSZip** + **PapaParse** — ZIP / CSV parsing with dynamic schema inference
-- **SheetJS (xlsx)** — Excel export
+- **ExcelJS** — richly-styled Excel export (branded headers, ₹ formats, colored risk cells, freeze panes, totals)
 - **Dexie** (IndexedDB) — local persistence
 - **Tailwind CSS** + custom shadcn-style primitives — financial-terminal UI
 - **Recharts** — charts
@@ -46,9 +46,9 @@ The app rebuilds the enriched **daybook** in-browser by joining `trn_accounting`
 
 ## Deploy (GitHub Pages)
 
-The included workflow (`.github/workflows/deploy.yml`) builds and deploys on every push to `main`. In the repo: **Settings → Pages → Build and deployment → Source: GitHub Actions**. The Vite `base` is set to `/tally-analyzer/` for the build; rename in `vite.config.ts` if the repo name differs.
+Currently deployed from the **`gh-pages`** branch (the built `dist/`). The Vite `base` is `/ipua-tally-analyzer/`. An Actions workflow is included as `deploy.workflow.yml.txt` — to use Actions-based deploy instead, move it to `.github/workflows/deploy.yml` (needs a token with `workflow` scope) and set **Settings → Pages → Source: GitHub Actions**.
 
-Live: <https://dhruvdua88.github.io/tally-analyzer/>
+Live: <https://dhruvdua88.github.io/ipua-tally-analyzer/>
 
 ## Privacy
 

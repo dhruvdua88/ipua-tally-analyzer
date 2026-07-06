@@ -1,9 +1,9 @@
 {
-  "name": "tally-analyzer",
+  "name": "ipua-tally-analyzer",
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "homepage": "https://dhruvdua88.github.io/tally-analyzer/",
+  "homepage": "https://dhruvdua88.github.io/ipua-tally-analyzer/",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
@@ -14,6 +14,7 @@
     "clsx": "^2.1.1",
     "dexie": "^4.0.10",
     "dexie-react-hooks": "^1.1.7",
+    "exceljs": "^4.4.0",
     "jszip": "^3.10.1",
     "lucide-react": "^0.468.0",
     "papaparse": "^5.4.1",
@@ -21,7 +22,6 @@
     "react-dom": "^18.3.1",
     "recharts": "^2.15.0",
     "tailwind-merge": "^2.6.0",
-    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
     "zustand": "^5.0.2"
   },
   "devDependencies": {

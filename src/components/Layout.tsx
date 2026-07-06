@@ -18,8 +18,8 @@ export function Layout({ route, children }: { route: string; children: ReactNode
         <div className="px-4 h-14 flex items-center gap-2.5 border-b border-border">
           <div className="h-7 w-7 rounded-lg bg-gold/15 border border-gold/30 grid place-items-center text-gold font-bold num">₹</div>
           <div className="leading-tight">
-            <div className="text-sm font-bold text-ink tracking-tight">Ledger Analyzer</div>
-            <div className="text-2xs text-faint">Tally audit workbench</div>
+            <div className="text-sm font-bold text-ink tracking-tight">IPUA Tally Analyzer</div>
+            <div className="text-2xs text-faint">Events Forum · audit workbench</div>
           </div>
         </div>
 
