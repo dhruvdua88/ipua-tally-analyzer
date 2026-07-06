@@ -1,203 +1,140 @@
 import { useMemo, useState } from 'react'
 import { useStore } from '@/lib/store'
-import { computePnl, computeBs } from '@/lib/pnlBs'
-import { PageHeader, Card, CardHeader, CardTitle, CardBody, Button, Empty, Badge } from '@/components/ui'
-import { Money, TraceAmount } from '@/components/shared'
-import { monthLabel, inrSymbol } from '@/lib/format'
-import type { PnlNode, BsNode } from '@/lib/types'
-import { ChevronRight, ChevronDown } from 'lucide-react'
+import { computeStatements, type StmtLine, type StmtNote } from '@/lib/statements'
+import { exportStatements } from '@/lib/excel'
+import { cn } from '@/lib/cn'
+import { PageHeader, Card, Button, Badge, Empty } from '@/components/ui'
+import { Money } from '@/components/shared'
+import { dateLabel } from '@/lib/format'
+import { Download, Scale, CheckCircle2, AlertTriangle, XCircle } from 'lucide-react'
 
-type Tab = 'pnl' | 'bs'
+type Tab = 'bs' | 'pnl' | 'notes'
 
 export function PnlBsPage() {
   const ds = useStore((s) => s.dataset)
   const open = useStore((s) => s.openDrilldown)
+  const [tab, setTab] = useState<Tab>('bs')
 
-  const pnl = useMemo(() => (ds ? computePnl(ds) : null), [ds])
-  const bs = useMemo(() => (ds && pnl ? computeBs(ds, pnl.surplus) : null), [ds, pnl])
+  const s = useMemo(() => (ds ? computeStatements(ds) : null), [ds])
+  if (!ds || !s) return <Empty title="No data loaded" hint="Upload a Tally export first." />
 
-  const [tab, setTab] = useState<Tab>('pnl')
-  const [expPnl, setExpPnl] = useState<Set<string>>(new Set())
-  const [expBs, setExpBs] = useState<Set<string>>(new Set())
-
-  if (!ds || !pnl || !bs) return <Empty title="No data loaded" hint="Upload a Tally export to see the P&L and Balance Sheet." />
-
-  const toggle = (set: Set<string>, setter: (s: Set<string>) => void, key: string) => {
-    const next = new Set(set)
-    if (next.has(key)) next.delete(key); else next.add(key)
-    setter(next)
+  const drillLedger = (name: string) => {
+    const lines = ds.lines.filter((l) => l.ledgerName === name)
+    if (lines.length) open({ title: name, subtitle: 'Ledger movement', lines })
   }
 
-  const drillLedger = (ledgerName: string, month?: string) =>
-    open({
-      title: ledgerName,
-      subtitle: month ? monthLabel(month) : 'All months',
-      lines: ds.lines.filter((l) => l.ledgerName === ledgerName && (!month || l.month === month)),
-    })
+  const StmtRow = ({ l }: { l: StmtLine }) => {
+    const header = Number.isNaN(l.amount)
+    if (header) return (
+      <div className="flex items-center px-4 pt-4 pb-1.5">
+        <span className="text-2xs uppercase tracking-wider text-faint font-semibold">{l.label}</span>
+      </div>
+    )
+    const isTotal = l.bold
+    return (
+      <div className={cn('flex items-center justify-between px-4 py-2 border-t border-border/50',
+        isTotal && 'bg-surface2/50 font-semibold', l.muted && 'opacity-70')}>
+        <span className={cn('text-sm flex items-center gap-2', isTotal ? 'text-ink' : 'text-muted')}>
+          {l.label}
+          {l.note && <button onClick={() => setTab('notes')} className="text-2xs text-gold trace">Note {l.note}</button>}
+        </span>
+        <Money value={l.amount} className={cn('text-sm', isTotal && 'text-ink')} />
+      </div>
+    )
+  }
 
-  // ---- P&L section renderer ------------------------------------------------
-  const PnlSection = ({ title, nodes }: { title: string; nodes: PnlNode[] }) => (
+  const NoteCard = ({ n }: { n: StmtNote }) => (
     <Card>
-      <CardHeader><CardTitle>{title}</CardTitle></CardHeader>
-      <CardBody className="p-0">
-        <div className="divide-y divide-border/60">
-          {nodes.map((n) => {
-            const on = expPnl.has(n.key)
-            return (
-              <div key={n.key}>
-                <button onClick={() => toggle(expPnl, setExpPnl, n.key)}
-                  className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-surface2/60 text-left">
-                  <span className="flex items-center gap-1.5 min-w-0">
-                    {on ? <ChevronDown size={14} className="text-faint shrink-0" /> : <ChevronRight size={14} className="text-faint shrink-0" />}
-                    <span className="text-sm font-medium text-ink truncate">{n.label}</span>
-                    <span className="text-2xs text-faint">({n.ledgers.length})</span>
-                  </span>
-                  <Money value={n.amount} className="text-sm shrink-0" />
-                </button>
-                {on && (
-                  <div className="overflow-x-auto bg-surface2/30 border-t border-border/60">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr>
-                          <th className="px-3 py-1.5 text-left text-2xs uppercase tracking-wider text-muted font-semibold whitespace-nowrap">Ledger</th>
-                          {pnl.months.map((m) => (
-                            <th key={m} className="px-3 py-1.5 text-right text-2xs uppercase tracking-wider text-muted font-semibold whitespace-nowrap">{monthLabel(m).replace(' 20', " '")}</th>
-                          ))}
-                          <th className="px-3 py-1.5 text-right text-2xs uppercase tracking-wider text-muted font-semibold whitespace-nowrap">Total</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {n.ledgers.map((led) => (
-                          <tr key={led.name} className="border-t border-border/40">
-                            <td className="px-3 py-1.5 text-ink whitespace-nowrap">{led.name}</td>
-                            {pnl.months.map((m) => {
-                              const v = led.months[m] ?? 0
-                              return (
-                                <td key={m} className="px-3 py-1.5 text-right whitespace-nowrap">
-                                  {Math.abs(v) < 0.01 ? <span className="text-faint">—</span> : <TraceAmount value={v} onClick={() => drillLedger(led.name, m)} />}
-                                </td>
-                              )
-                            })}
-                            <td className="px-3 py-1.5 text-right whitespace-nowrap">
-                              <TraceAmount value={led.amount} onClick={() => drillLedger(led.name)} className="font-medium" />
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
-      </CardBody>
-    </Card>
-  )
-
-  // ---- BS column renderer --------------------------------------------------
-  const BsColumn = ({ title, nodes, total, extra }: { title: string; nodes: BsNode[]; total: number; extra?: { label: string; amount: number } }) => (
-    <Card>
-      <CardHeader><CardTitle>{title}</CardTitle></CardHeader>
-      <CardBody className="p-0">
-        <div className="divide-y divide-border/60">
-          {nodes.map((n) => {
-            const on = expBs.has(n.side + ':' + n.key)
-            return (
-              <div key={n.side + ':' + n.key}>
-                <button onClick={() => toggle(expBs, setExpBs, n.side + ':' + n.key)}
-                  className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-surface2/60 text-left">
-                  <span className="flex items-center gap-1.5 min-w-0">
-                    {on ? <ChevronDown size={14} className="text-faint shrink-0" /> : <ChevronRight size={14} className="text-faint shrink-0" />}
-                    <span className="text-sm font-medium text-ink truncate">{n.label}</span>
-                    <span className="text-2xs text-faint">({n.ledgers.length})</span>
-                  </span>
-                  <Money value={n.amount} className="text-sm shrink-0" />
-                </button>
-                {on && (
-                  <div className="bg-surface2/30 border-t border-border/60 divide-y divide-border/40">
-                    {n.ledgers.map((led) => (
-                      <div key={led.name} className="flex items-center justify-between px-4 py-1.5 pl-9">
-                        <span className="text-sm text-ink truncate">{led.name}</span>
-                        <Money value={led.amount} className="text-sm shrink-0" />
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )
-          })}
-          {extra && (
-            <div className="flex items-center justify-between px-4 py-2.5">
-              <span className="text-sm font-medium text-gold">{extra.label}</span>
-              <Money value={extra.amount} className="text-sm shrink-0" />
-            </div>
-          )}
-        </div>
-      </CardBody>
-      <div className="flex items-center justify-between px-4 py-3 border-t border-border bg-surface2/40">
-        <span className="text-sm font-semibold text-ink">{title === 'Assets' ? 'Total Assets' : 'Total Liabilities + Equity'}</span>
-        <Money value={total} className="text-sm font-semibold" />
+      <div className="flex items-center justify-between px-4 py-2.5 border-b border-border">
+        <span className="text-sm font-semibold text-ink">Note {n.no} — {n.title}</span>
+        <Money value={n.total} className="text-sm font-semibold" />
+      </div>
+      <div className="divide-y divide-border/40">
+        {n.rows.map((r, i) => (
+          <div key={i} className={cn('flex items-center justify-between px-4 py-1.5', r.group && 'bg-surface2/40')}>
+            <button onClick={() => !r.group && drillLedger(r.name)}
+              className={cn('text-sm text-left', r.sub && 'pl-4', r.group ? 'text-ink font-medium' : 'text-muted hover:text-gold')}>
+              {r.name}
+            </button>
+            <Money value={r.amount} className="text-sm" />
+          </div>
+        ))}
+        {!n.rows.length && <div className="px-4 py-3 text-xs text-faint">No ledgers</div>}
       </div>
     </Card>
   )
 
-  const diffLarge = Math.abs(bs.difference) > Math.max(1, Math.abs(bs.totalAssets) * 0.01)
+  const sevIcon = { error: <XCircle size={14} className="text-risk" />, warning: <AlertTriangle size={14} className="text-warn" />, info: <CheckCircle2 size={14} className="text-ok" /> }
+  const plugTone = s.bs.plugPct < 0.01 ? 'ok' : s.bs.plugPct < 1 ? 'warn' : 'risk'
 
   return (
     <div>
-      <PageHeader title="P&L / Balance Sheet" subtitle={`${ds.company} · ${pnl.months.length} months`} />
+      <PageHeader title="Financial Statements" subtitle={`Draft Schedule III · ${s.company} · ${dateLabel(s.periodFrom)} – ${dateLabel(s.periodTo)}`}
+        right={<Button variant="outline" onClick={() => exportStatements(s)}><Download size={15} /> Export statements</Button>} />
 
-      {/* Tabs */}
-      <div className="flex items-center gap-2 mb-4">
-        <Button variant={tab === 'pnl' ? 'primary' : 'outline'} onClick={() => setTab('pnl')}>Profit &amp; Loss</Button>
-        <Button variant={tab === 'bs' ? 'primary' : 'outline'} onClick={() => setTab('bs')}>Balance Sheet</Button>
-      </div>
-
-      {tab === 'pnl' ? (
-        <div className="space-y-3">
-          <PnlSection title="Income" nodes={pnl.income} />
-          <PnlSection title="Expense" nodes={pnl.expense} />
-          <Card>
-            <CardBody className="p-0">
-              <div className="divide-y divide-border/60">
-                <div className="flex items-center justify-between px-4 py-2.5">
-                  <span className="text-sm font-medium text-ink">Total Income</span>
-                  <Money value={pnl.totalIncome} className="text-sm" />
-                </div>
-                <div className="flex items-center justify-between px-4 py-2.5">
-                  <span className="text-sm font-medium text-ink">Total Expense</span>
-                  <Money value={pnl.totalExpense} className="text-sm" />
-                </div>
-                <div className="flex items-center justify-between px-4 py-3 bg-surface2/40">
-                  <span className={`text-sm font-semibold ${pnl.surplus >= 0 ? 'text-gold' : 'text-risk'}`}>{pnl.surplus >= 0 ? 'Surplus' : 'Deficit'} for period</span>
-                  <span className={`num tabular-nums text-sm font-semibold ${pnl.surplus >= 0 ? 'text-gold' : 'text-risk'}`}>{inrSymbol(pnl.surplus)}</span>
-                </div>
+      {/* reconciliation banner */}
+      <Card className={cn('mb-4 border-l-2', plugTone === 'ok' ? 'border-l-ok' : plugTone === 'warn' ? 'border-l-warn' : 'border-l-risk')}>
+        <div className="p-4 flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-3">
+            <Scale size={18} className={plugTone === 'ok' ? 'text-ok' : plugTone === 'warn' ? 'text-warn' : 'text-risk'} />
+            <div>
+              <div className="text-sm font-semibold text-ink">
+                Balance Sheet {s.bs.plugPct < 0.01 ? 'ties' : 'reconciles'} — Assets <span className="num">₹{Math.round(s.bs.totalAssets).toLocaleString('en-IN')}</span> = Equity &amp; Liabilities
               </div>
-            </CardBody>
-          </Card>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-            <BsColumn title="Assets" nodes={bs.assets} total={bs.totalAssets} />
-            <BsColumn title="Liabilities + Equity" nodes={bs.liabilities} total={bs.totalLiabilities + bs.surplus}
-              extra={{ label: `${bs.surplus >= 0 ? 'Surplus' : 'Deficit'} carried to reserves`, amount: bs.surplus }} />
+              <div className="text-xs text-muted mt-0.5">Reconciliation plug ₹{Math.round(s.bs.plug).toLocaleString('en-IN')} ({s.bs.plugPct.toFixed(2)}% of assets) · Surplus after tax ₹{Math.round(s.pnlSummary.pat).toLocaleString('en-IN')}</div>
+            </div>
           </div>
+          <div className="flex gap-1.5">
+            {(['bs', 'pnl', 'notes'] as Tab[]).map((t) => (
+              <button key={t} onClick={() => setTab(t)}
+                className={cn('h-9 px-3.5 rounded-lg text-sm font-medium border transition-colors',
+                  tab === t ? 'bg-gold/15 text-gold border-gold/40' : 'border-border text-muted hover:text-ink hover:bg-surface2')}>
+                {t === 'bs' ? 'Balance Sheet' : t === 'pnl' ? 'Statement of P&L' : 'Notes'}
+              </button>
+            ))}
+          </div>
+        </div>
+      </Card>
+
+      {tab === 'bs' && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <Card>
-            <CardBody className="flex items-center justify-between gap-3 flex-wrap">
-              <div className="flex items-center gap-3">
-                <span className="text-sm font-medium text-ink">Difference</span>
-                {diffLarge && <Badge color="warn">Does not tie</Badge>}
-                <span className="text-xs text-muted">should be ≈ 0; surplus of period carried to reserves</span>
-              </div>
-              <div className="flex items-center gap-5">
-                <span className="text-2xs text-faint">Surplus <Money value={bs.surplus} className="text-sm ml-1" /></span>
-                <Money value={bs.difference} className="text-sm font-semibold" />
-              </div>
-            </CardBody>
+            <div className="px-4 py-2.5 border-b border-border text-sm font-semibold text-ink">Equity &amp; Liabilities</div>
+            {s.bs.equityLiab.map((l) => <StmtRow key={l.key} l={l} />)}
+          </Card>
+          <Card>
+            <div className="px-4 py-2.5 border-b border-border text-sm font-semibold text-ink">Assets</div>
+            {s.bs.assets.map((l) => <StmtRow key={l.key} l={l} />)}
           </Card>
         </div>
+      )}
+
+      {tab === 'pnl' && (
+        <Card className="max-w-3xl">
+          <div className="px-4 py-2.5 border-b border-border text-sm font-semibold text-ink">Statement of Income &amp; Expenditure (P&amp;L)</div>
+          {s.pnl.map((l) => <StmtRow key={l.key} l={l} />)}
+        </Card>
+      )}
+
+      {tab === 'notes' && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {s.notes.map((n) => <NoteCard key={n.no} n={n} />)}
+        </div>
+      )}
+
+      {/* validation */}
+      {s.validations.length > 0 && (
+        <Card className="mt-4">
+          <div className="px-4 py-2.5 border-b border-border text-sm font-semibold text-ink flex items-center gap-2">Validation checks <Badge color="muted">{s.validations.length}</Badge></div>
+          <div className="divide-y divide-border/40">
+            {s.validations.map((v, i) => (
+              <div key={i} className="flex items-start gap-2.5 px-4 py-2">
+                {sevIcon[v.severity]}
+                <div className="text-xs"><span className="text-faint uppercase tracking-wide mr-2">{v.category}</span><span className="text-muted">{v.message}</span></div>
+              </div>
+            ))}
+          </div>
+        </Card>
       )}
     </div>
   )

@@ -18,7 +18,7 @@ export const NAV: NavItem[] = [
   { id: 'tds', label: 'TDS Review', icon: Receipt, group: 'Compliance' },
   { id: 'advances', label: 'GST on Advances', icon: Wallet, group: 'Compliance' },
   { id: 'gstrecon', label: 'GST Reconciliation', icon: Landmark, group: 'Compliance' },
-  { id: 'pnlbs', label: 'P&L + Balance Sheet', icon: BookOpen, group: 'Statements' },
+  { id: 'pnlbs', label: 'Financial Statements', icon: BookOpen, group: 'Statements' },
   { id: 'preview', label: 'Raw Tables', icon: Table2, group: 'Data' },
 ]
 

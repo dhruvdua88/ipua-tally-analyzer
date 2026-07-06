@@ -4,6 +4,7 @@ import type {
 } from './types'
 import type { MisResult } from './mis'
 import type { PnlResult, BsResult } from './pnlBs'
+import type { FinStatements } from './statements'
 
 // ============================================================================
 // God-tier styled Excel exports (ExcelJS). Every workbook shares one visual
@@ -459,6 +460,73 @@ export async function exportMis(mis: MisResult, pnl: PnlResult, bs: BsResult, co
   })
 
   await save(wb, fname('MIS', company))
+}
+
+export async function exportStatements(s: FinStatements) {
+  const wb = new ExcelJS.Workbook()
+  const period = stamp(s.company, `Period ${s.periodFrom} to ${s.periodTo}`)
+  const isHead = (amt: number) => Number.isNaN(amt)
+
+  // Balance Sheet
+  addStyledSheet(wb, 'Balance Sheet', {
+    title: 'Balance Sheet (Schedule III) — DRAFT', subtitle: period,
+    columns: [
+      { header: 'Particulars', key: 'p', width: 46 },
+      { header: 'Note', key: 'note', type: 'center', width: 7 },
+      { header: 'Amount (₹)', key: 'amt', type: 'money', width: 20 },
+    ],
+    rows: [
+      ...s.bs.equityLiab.map((l) => ({ p: l.label, note: l.note ?? '', amt: isHead(l.amount) ? '' : l.amount, _h: isHead(l.amount) || l.bold, _mute: l.muted })),
+      { p: '', note: '', amt: '' },
+      ...s.bs.assets.map((l) => ({ p: l.label, note: l.note ?? '', amt: isHead(l.amount) ? '' : l.amount, _h: isHead(l.amount) || l.bold, _mute: l.muted })),
+    ],
+    tagFor: (row, key) => key === 'p' && row._h ? 'muted' : undefined,
+    note: `Balances the reconciliation plug of ₹${Math.round(s.bs.plug).toLocaleString('en-IN')} (${s.bs.plugPct.toFixed(2)}% of assets). Equity carries the full P&L A/c balance; advances grossed up. DRAFT — for review.`,
+  })
+
+  // Statement of P&L
+  addStyledSheet(wb, 'Statement of P&L', {
+    title: 'Statement of Income & Expenditure (P&L) — DRAFT', subtitle: period,
+    columns: [
+      { header: 'Particulars', key: 'p', width: 46 },
+      { header: 'Amount (₹)', key: 'amt', type: 'money', width: 20 },
+    ],
+    rows: s.pnl.map((l) => ({ p: l.label, amt: isHead(l.amount) ? '' : l.amount, _h: isHead(l.amount) || l.bold })),
+    tagFor: (row, key) => key === 'p' && row._h ? 'muted' : undefined,
+    note: 'Tax expense is a balancing figure so surplus after tax equals the movement in the Tally P&L A/c ledger.',
+  })
+
+  // Notes
+  const noteRows: Record<string, unknown>[] = []
+  for (const n of s.notes) {
+    noteRows.push({ p: `Note ${n.no} — ${n.title}`, amt: n.total, _h: true })
+    for (const r of n.rows) noteRows.push({ p: (r.sub ? '      ' : r.group ? '  ' : '  ') + r.name, amt: r.amount, _g: r.group })
+    noteRows.push({ p: `Total — Note ${n.no}`, amt: n.total, _t: true })
+    noteRows.push({ p: '', amt: '' })
+  }
+  addStyledSheet(wb, 'Notes to Accounts', {
+    title: 'Notes to the Financial Statements — DRAFT', subtitle: period,
+    columns: [
+      { header: 'Particulars', key: 'p', width: 60 },
+      { header: 'Amount (₹)', key: 'amt', type: 'money', width: 20 },
+    ],
+    rows: noteRows,
+    tagFor: (row, key) => key === 'p' ? (row._h ? 'info' : row._t ? 'muted' : row._g ? 'muted' : undefined) : undefined,
+  })
+
+  // Validation
+  addStyledSheet(wb, 'Validation', {
+    title: 'Statement Validation Checks', subtitle: period,
+    columns: [
+      { header: 'Severity', key: 'sev', type: 'status', width: 12 },
+      { header: 'Category', key: 'cat', width: 18 },
+      { header: 'Check', key: 'msg', width: 80 },
+    ],
+    rows: s.validations.map((v) => ({ sev: v.severity.toUpperCase(), severity: v.severity, cat: v.category, msg: v.message })),
+    tagFor: (row, key) => key === 'sev' ? (row.severity === 'error' ? 'risk' : row.severity === 'warning' ? 'warn' : 'ok') : undefined,
+  })
+
+  await save(wb, fname('Financial_Statements', s.company))
 }
 
 export async function exportDatabase(ds: Dataset) {

@@ -55,4 +55,15 @@ ab = await (captured! as Blob).arrayBuffer()
 await writeFile('/tmp/ipua_mis_check.xlsx', Buffer.from(ab))
 const wb2 = new ExcelJS.Workbook(); await wb2.xlsx.load(ab)
 console.log('\nMIS workbook sheets:', wb2.worksheets.map((w) => w.name).join(', '))
+
+// 3) Financial Statements
+captured = null
+const { computeStatements } = await import('../src/lib/statements.ts')
+const { exportStatements } = await import('../src/lib/excel.ts')
+await exportStatements(computeStatements(ds))
+ab = await (captured! as Blob).arrayBuffer()
+await writeFile('/tmp/ipua_financial_statements.xlsx', Buffer.from(ab))
+const wb3 = new ExcelJS.Workbook(); await wb3.xlsx.load(ab)
+console.log('\nFin Statements sheets:', wb3.worksheets.map((w) => w.name).join(', '))
+
 console.log('\nEXCEL CHECK OK')
